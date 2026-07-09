@@ -19,7 +19,8 @@ class PathFinder:
         self.map_data = map_data
         self.graph: Graph = Graph(map_data)
         self.visited_zones: List[str] = []
-        self.previous: Dict[str, str] = {}
+        self.previous: Dict[str, Zone | None] = self.init_dis_a_pre()[1]
+        self.distance: Dict[str, float] = self.init_dis_a_pre()[0]
 
     def is_blocked(self, zone_name: Zone) -> bool:
         """Checks if a zone is blocked or not"""
@@ -42,24 +43,18 @@ class PathFinder:
             return True
         return False
 
-    def set_data(self, current: Zone | None) -> Tracking_Data:
-        distance: Dict[str, float] = {}
-        zones: Zone = self.map_data.zones
-        if current is None:
-            current: Zone = self.map_data.zones["start_hub"]
-        previous: Dict[str, None|Zone] = {}
-        print(type(current))
-        neighbors = self.graph.get_neighbors(current)
+    def init_dis_a_pre(self) -> List[Dict, Dict]:
+        distance = {}
+        previous = {}
+        zones = self.map_data.zones
+        current = self.map_data.zones["start_hub"]
         for zone in zones:
-            if self.map_data.zones[zone].zone_place == "start_hub":
-                distance["start"] = 0.00
-                previous["start"] = None
+            if self.map_data.zones[zone].zone_place == "start":
+                distance[zone] = 0.00
             else:
                 distance[zone] = math.inf
-                previous[zone] = None
-        # print(distance)
-        # print(previous)
-        return Tracking_Data(current, neighbors, distance, previous)
+            previous[zone] = None
+        return [distance, previous]
 
 
     def get_cl_zone(self, current: Zone) -> Zone:
@@ -76,7 +71,10 @@ class PathFinder:
                 unvisited_zones[zone] = tracked.distance[zone]
         closest_zone = min(unvisited_zones, key=unvisited_zones.get)
         return map_data.zones[closest_zone]
-            
+
+    def dijkstra(self):
+        cur_zone = self.map_data.zones[]
+        closest = self.get_cl_zone()
 
 
 if __name__ == "__main__":
