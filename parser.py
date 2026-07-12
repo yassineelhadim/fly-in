@@ -137,9 +137,9 @@ class Parser():
             raise ValueError(f"Line {line_index}: zone must have name x y.")
         name = parts[0]
         if drone_prefix == "start_hub":
-            zone_place = "start"
+            zone_place = "start_hub"
         elif drone_prefix == "end_hub":
-            zone_place = "end"
+            zone_place = "end_hub"
         elif drone_prefix == "hub":
             zone_place = "hub"
         i = 0
