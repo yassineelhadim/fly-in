@@ -15,7 +15,7 @@ class Graph:
             self.adj.setdefault(conn.zone1, []).append(conn.zone2)
             self.adj.setdefault(conn.zone2, []).append(conn.zone1)
 
-    def get_neighbors(self, zone: Zone) -> List[str]:
+    def get_neighbors(self, zone: str) -> List[str]:
         """Returns the neighbours of a specific Zone"""
-        return self.adj.get(zone.name, [])
+        return self.adj.get(zone, [])
 
