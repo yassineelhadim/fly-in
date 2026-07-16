@@ -16,3 +16,87 @@ while there are unvisited nodes:
     Find the unvisited node with the smallest distance.
 
     et current to that node.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**Scheduler Logic:**
+
+Scheduler.run()
+        ↓
+create_drones()
+        ↓
+initialize_world()
+        ↓
+while not finished():
+        process_turn()
+        print_turn()
+        ↓
+print_result()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+**Process Turn Logic:**
+
+for every drone
+
+        if drone finished
+                continue
+
+        choose_path()
+
+        if can_move()
+
+                move_drone()
+
+        else
+
+                wait_drone()
+
+
+
+
+
+
+
+
+
+
+
+

@@ -115,7 +115,6 @@ class PathFinder:
 def find_multiple_paths(self) -> List[List[str]]:
     """Finds multiple valid paths by temporarily removing one connection."""
     paths = []
-
     # Find the shortest path
     first_path = self.dijkstra()
     if not first_path:

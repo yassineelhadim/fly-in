@@ -1,5 +1,5 @@
 from enum import Enum
-from Typing import List
+from typing import List, Dict, Tuple
 
 
 class ZoneType(Enum):
@@ -84,13 +84,12 @@ class MapData():
         self.connections: list[Connection] = connections
 
 class Drone():
-    def __init__(self, path: List[str], id_: int, map_data: MapData) -> None:
+    def __init__(self, path: List[str], id_: int) -> None:
         self.path: List[str] = path
         self.id_: int = id_
-        self.map_data: MapData = map_data
         self.current_position: str = self.path[0]
         self.step: int = 0
 
-    def move_drone(self) -> None:
-        self.step += 1
-        self.current_position = self.path[self.step]
+    # def move_drone(self) -> None:
+    #     self.step += 1
+    #     self.current_position = self.path[self.step]
