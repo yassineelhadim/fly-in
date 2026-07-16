@@ -1,7 +1,6 @@
 from typing import Dict, List, Optional, Tuple, Any, Set
-from heapq import heappush, heappop
 from parser import MapData, Zone, start
-from graph import Graph
+from graph import Graph, GraphEditor
 import math
 
 
@@ -11,6 +10,7 @@ class PathFinder:
     def __init__(self, map_data: MapData) -> None:
         self.map_data = map_data
         self.graph: Graph = Graph(map_data)
+        self.graph_editor: GraphEditor = GraphEditor(self.graph)
         self.visited_zones: Set[str] = set()
         self.distance, self.previous = self.init_dis_a_pre()
 
