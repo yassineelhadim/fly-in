@@ -1,10 +1,28 @@
 import sys
-import pygame # type: ignore
+import re
+try:
+    import pygame  # type: ignore
+except ModuleNotFoundError:
+    pygame = None
 from classes import Zone, ZoneType, MapData, Connection
 
 
 class Parser():
     """Parses a drone network map file into a MapData object."""
+
+    FALLBACK_COLOR_NAMES = {
+        "black", "silver", "gray", "white", "maroon", "red", "purple",
+        "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue",
+        "teal", "aqua", "orange", "pink", "brown", "cyan", "magenta",
+    }
+
+    def _is_valid_color(self, color: str) -> bool:
+        if pygame is not None:
+            pygame.init()
+            return color in pygame.color.THECOLORS
+        if color in self.FALLBACK_COLOR_NAMES:
+            return True
+        return re.fullmatch(r"#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})", color) is not None
 
     def __init__(self, filepath: str) -> None:
         """Initialize Parser with a file path.
@@ -80,11 +98,8 @@ class Parser():
         if z_type_str not in valid_types:
             raise ValueError(f'Line {line_index}: The zone type "{z_type_str}" is invalid.')
         z_type = valid_types[z_type_str]
-        if color is not None:
-            pygame.init()
-            colors = pygame.color.THECOLORS
-            if color not in colors:
-                raise ValueError(f'Line {line_index}: "{color}" is not a valid color.')
+        if color is not None and not self._is_valid_color(color):
+            raise ValueError(f'Line {line_index}: "{color}" is not a valid color.')
         return Zone(name, x, y, z_type, color, max_d, zone_place)
 
     def _parse_connection(self, line: str, line_index: int) -> Connection:

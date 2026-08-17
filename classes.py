@@ -90,6 +90,6 @@ class Drone():
         self.current_position: str = self.path[0]
         self.step: int = 0
 
-    # def move_drone(self) -> None:
-    #     self.step += 1
-    #     self.current_position = self.path[self.step]
+    def move_drone(self) -> None:
+        self.step += 1
+        self.current_position = self.path[self.step]

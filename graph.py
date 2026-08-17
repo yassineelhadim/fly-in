@@ -42,3 +42,7 @@ class GraphEditor:
         if zone1 not in self.original_graph.adj.get(zone2, []):
             self.original_graph.adj[zone2].append(zone1)
 
+    def move_drone(self) -> None:
+        self.step += 1
+        self.current_position = self.path[self.step]
+
