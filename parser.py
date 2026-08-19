@@ -1,28 +1,15 @@
-import sys
-import re
-try:
-    import pygame  # type: ignore
-except ModuleNotFoundError:
-    pygame = None
 from classes import Zone, ZoneType, MapData, Connection
 
 
-class Parser():
+class Parser:
     """Parses a drone network map file into a MapData object."""
 
-    FALLBACK_COLOR_NAMES = {
-        "black", "silver", "gray", "white", "maroon", "red", "purple",
-        "fuchsia", "green", "lime", "olive", "yellow", "navy", "blue",
-        "teal", "aqua", "orange", "pink", "brown", "cyan", "magenta",
-    }
-
     def _is_valid_color(self, color: str) -> bool:
-        if pygame is not None:
-            pygame.init()
-            return color in pygame.color.THECOLORS
-        if color in self.FALLBACK_COLOR_NAMES:
-            return True
-        return re.fullmatch(r"#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})", color) is not None
+        """Check if a color value is valid.
+
+        Per spec, any single-word string is a valid color.
+        """
+        return bool(color) and " " not in color and "\t" not in color
 
     def __init__(self, filepath: str) -> None:
         """Initialize Parser with a file path.
@@ -42,13 +29,24 @@ class Parser():
         Returns:
             Number of drones as a positive integer.
         """
+        # Remove any comments after the value
+        line_parts = line.split("#", 1)
+        line = line_parts[0].strip()
+
         parts = line.split(":")
         if len(parts) != 2:
             raise ValueError(f"Line {line_index}: Invalid nb_drones format.")
         nb_value = parts[1].strip()
         if not nb_value.isdigit() or int(nb_value) <= 0:
-            raise ValueError(f"Line {line_index}: nb_drones value should be a positive integer.")
-        return int(nb_value)
+            raise ValueError(
+                f"Line {line_index}: nb_drones value should be a positive integer."
+            )
+        nb_drones_val = int(nb_value)
+        if nb_drones_val > 10000:
+            raise ValueError(
+                f"Line {line_index}: nb_drones value exceeds maximum of 10,000."
+            )
+        return nb_drones_val
 
     def _parse_zone(self, line: str, line_index: int, drone_prefix: str) -> Zone:
         """Parse a zone line and return a Zone object.
@@ -61,13 +59,46 @@ class Parser():
         Returns:
             A Zone object.
         """
-        rest = line[len(drone_prefix) + 1:].strip()
+        # Remove any comments after the metadata
+        line_parts = line.split("#", 1)
+        line_content = line_parts[0].strip()
+
+        rest = line_content[len(drone_prefix) + 1 :].strip()
         metadata: dict[str, str] = {}
-        if "[" in rest and "]" in rest:
-            m_start = rest.index("[")
-            m_end = rest.index("]")
-            metadata = self._parse_metadata(rest[m_start + 1:m_end], line_index)
-            rest = rest[:m_start]
+        last_bracket_start = rest.rfind("[")
+        last_bracket_end = rest.rfind("]")
+
+        # Check if we have a bracket section
+        if (
+            last_bracket_start != -1
+            and last_bracket_end != -1
+            and last_bracket_start < last_bracket_end
+        ):
+            # Check for content after the closing bracket before extracting metadata
+            after_bracket = rest[last_bracket_end + 1 :].strip()
+            if after_bracket:
+                raise ValueError(
+                    f'Line {line_index}: Unexpected content after closing '
+                    f'bracket: "{after_bracket}".'
+                )
+
+            # Extract metadata if it contains key=value pairs
+            if "=" in rest[last_bracket_start + 1 : last_bracket_end]:
+                metadata = self._parse_metadata(
+                    rest[last_bracket_start + 1 : last_bracket_end],
+                    line_index,
+                    drone_prefix,
+                )
+                rest = rest[:last_bracket_start].strip()
+            else:
+                # There's content in brackets but no '=' sign
+                raise ValueError(
+                    f"Line {line_index}: Invalid metadata format in brackets."
+                )
+        elif last_bracket_start != -1 or last_bracket_end != -1:
+            # Unclosed bracket
+            raise ValueError(f"Line {line_index}: zone must have name x y.")
+
         parts = rest.split()
         if len(parts) != 3:
             raise ValueError(f"Line {line_index}: zone must have name x y.")
@@ -78,7 +109,6 @@ class Parser():
             zone_place = "end_hub"
         elif drone_prefix == "hub":
             zone_place = "hub"
-        i = 0
         if "-" in name:
             raise ValueError(f'Line {line_index}: name contains "-".')
         try:
@@ -87,16 +117,29 @@ class Parser():
         except ValueError:
             raise ValueError(f"Line {line_index}: coordinates must be integers.")
         z_type_str = metadata.get("zone", "normal")
+
+        # Check if start_hub or end_hub is blocked
+        if (
+            drone_prefix == "start_hub" or drone_prefix == "end_hub"
+        ) and z_type_str == "blocked":
+            raise ValueError(
+                f"Line {line_index}: {drone_prefix} cannot have zone=blocked."
+            )
+
         color = metadata.get("color", None)
         try:
             max_d = int(metadata.get("max_drones", "1"))
             if max_d <= 0:
                 raise ValueError
         except ValueError:
-            raise ValueError(f'Line {line_index}: max_drones must be a positive integer.')
+            raise ValueError(
+                f"Line {line_index}: max_drones must be a positive integer."
+            )
         valid_types = {zt.value: zt for zt in ZoneType}
         if z_type_str not in valid_types:
-            raise ValueError(f'Line {line_index}: The zone type "{z_type_str}" is invalid.')
+            raise ValueError(
+                f'Line {line_index}: The zone type "{z_type_str}" is invalid.'
+            )
         z_type = valid_types[z_type_str]
         if color is not None and not self._is_valid_color(color):
             raise ValueError(f'Line {line_index}: "{color}" is not a valid color.')
@@ -112,42 +155,132 @@ class Parser():
         Returns:
             A Connection object.
         """
-        rest = line[len("connection:"):].strip()
+        # Remove any comments after the metadata
+        line_parts = line.split("#", 1)
+        line_content = line_parts[0].strip()
+
+        rest = line_content[len("connection:") :].strip()
         metadata: dict[str, str] = {}
-        if "[" in rest and "]" in rest:
-            i_start = rest.index("[")
-            i_end = rest.index("]")
-            metadata = self._parse_metadata(rest[i_start + 1:i_end], line_index)
-            rest = rest[:i_start].strip()
+        last_bracket_start = rest.rfind("[")
+        last_bracket_end = rest.rfind("]")
+
+        # Check if we have a bracket section
+        if (
+            last_bracket_start != -1
+            and last_bracket_end != -1
+            and last_bracket_start < last_bracket_end
+        ):
+            # Check for content after the closing bracket before extracting metadata
+            after_bracket = rest[last_bracket_end + 1 :].strip()
+            if after_bracket:
+                raise ValueError(
+                    f'Line {line_index}: Unexpected content after closing '
+                    f'bracket: "{after_bracket}".'
+                )
+
+            # Extract metadata if it contains key=value pairs
+            if "=" in rest[last_bracket_start + 1 : last_bracket_end]:
+                metadata = self._parse_metadata(
+                    rest[last_bracket_start + 1 : last_bracket_end],
+                    line_index,
+                    "connection",
+                )
+                rest = rest[:last_bracket_start].strip()
+            else:
+                # There's content in brackets but no '=' sign
+                raise ValueError(
+                    f"Line {line_index}: Invalid metadata format in brackets."
+                )
+        elif last_bracket_start != -1 or last_bracket_end != -1:
+            # Unclosed bracket
+            raise ValueError(
+                f'Line {line_index}: connection syntax must be "name1-name2".'
+            )
+
         parts = rest.split("-")
         if len(parts) != 2:
-            raise ValueError(f'Line {line_index}: connection syntax must be "name1-name2".')
+            raise ValueError(
+                f'Line {line_index}: connection syntax must be "name1-name2".'
+            )
         zn1 = parts[0].strip()
         zn2 = parts[1].strip()
+
+        # Check for self-connection
+        if zn1 == zn2:
+            raise ValueError(
+                f'Line {line_index}: Self-connection "{zn1}-{zn2}" not allowed.'
+            )
+
+        # Check for empty zone names
+        if not zn1 or not zn2:
+            raise ValueError(
+                f"Line {line_index}: Connection pair cannot have empty zone names."
+            )
+
         try:
             mlc = int(metadata.get("max_link_capacity", "1"))
             if mlc <= 0:
                 raise ValueError
         except ValueError:
-            raise ValueError(f'Line {line_index}: max_link_capacity must be a positive integer.')
+            raise ValueError(
+                f"Line {line_index}: max_link_capacity must be a positive integer."
+            )
         return Connection(zn1, zn2, mlc)
 
-    def _parse_metadata(self, metadata_str: str, line_index: int) -> dict[str, str]:
+    def _parse_metadata(
+        self, metadata_str: str, line_index: int, entity_type: str = "zone"
+    ) -> dict[str, str]:
         """Parse a metadata block like zone=restricted color=red max_drones=2.
 
         Args:
             metadata_str: The content inside the brackets.
             line_index: Line number for error reporting.
+            entity_type: Type of entity ('zone', 'hub', 'start_hub', 'end_hub', 'connection')
 
         Returns:
             Dictionary of key-value pairs from the metadata.
         """
         result: dict[str, str] = {}
-        for part in metadata_str.strip().split():
+
+        # Strip commas and split by whitespace to handle comma-separated style
+        cleaned_metadata_str = metadata_str.replace(",", " ")
+        for part in cleaned_metadata_str.strip().split():
             if "=" not in part:
                 raise ValueError(f"Line {line_index}: Invalid metadata '{part}'.")
             key, value = part.split("=", 1)
-            result[key.strip()] = value.strip()
+            key = key.strip()
+            value = value.strip()
+
+            # Validate key is not empty
+            if not key:
+                raise ValueError(f"Line {line_index}: Metadata key cannot be empty.")
+
+            # Check for duplicate keys
+            if key in result:
+                raise ValueError(f"Line {line_index}: Duplicate metadata key '{key}'.")
+
+            result[key] = value
+
+        # Validate allowed keys based on entity type
+        if entity_type in ["start_hub", "end_hub", "hub"]:
+            allowed_keys = {"zone", "color", "max_drones"}
+            for key in result.keys():
+                if key not in allowed_keys:
+                    raise ValueError(
+                        f"Line {line_index}: Invalid metadata key '{key}' "
+                        f"for {entity_type}. Allowed keys: "
+                        f"{', '.join(sorted(allowed_keys))}."
+                    )
+        elif entity_type == "connection":
+            allowed_keys = {"zone", "max_link_capacity"}
+            for key in result.keys():
+                if key not in allowed_keys:
+                    raise ValueError(
+                        f"Line {line_index}: Invalid metadata key '{key}' "
+                        f"for connection. Allowed keys: "
+                        f"{', '.join(sorted(allowed_keys))}."
+                    )
+
         return result
 
     def parse(self) -> MapData:
@@ -177,15 +310,21 @@ class Parser():
                 continue
             if not nb_drones_found:
                 if not line.startswith("nb_drones:"):
-                    raise ValueError(f"Line {line_index}: First line must be nb_drones.")
+                    raise ValueError(
+                        f"Line {line_index}: First line must be nb_drones."
+                    )
                 nb_drones = self._parse_nb_drones(line, line_index)
                 nb_drones_found = True
             elif line.startswith("start_hub:"):
                 if start_found:
-                    raise ValueError(f"Line {line_index}: Only one start_hub is allowed.")
+                    raise ValueError(
+                        f"Line {line_index}: Only one start_hub is allowed."
+                    )
                 zone: Zone = self._parse_zone(line, line_index, "start_hub")
                 if zone.name in zones:
-                    raise ValueError(f"Line {line_index}: Duplicate zone name '{zone.name}'.")
+                    raise ValueError(
+                        f"Line {line_index}: Duplicate zone name '{zone.name}'."
+                    )
                 zones[zone.name] = zone
                 start_zone = zone.name
                 start_found = True
@@ -194,14 +333,18 @@ class Parser():
                     raise ValueError(f"Line {line_index}: Only one end_hub is allowed.")
                 zone = self._parse_zone(line, line_index, "end_hub")
                 if zone.name in zones:
-                    raise ValueError(f"Line {line_index}: Duplicate zone name '{zone.name}'.")
+                    raise ValueError(
+                        f"Line {line_index}: Duplicate zone name '{zone.name}'."
+                    )
                 zones[zone.name] = zone
                 end_zone = zone.name
                 end_found = True
             elif line.startswith("hub:"):
                 zone = self._parse_zone(line, line_index, "hub")
                 if zone.name in zones:
-                    raise ValueError(f"Line {line_index}: Duplicate zone name '{zone.name}'.")
+                    raise ValueError(
+                        f"Line {line_index}: Duplicate zone name '{zone.name}'."
+                    )
                 zones[zone.name] = zone
             elif line.startswith("connection:"):
                 con = self._parse_connection(line, line_index)
@@ -210,9 +353,15 @@ class Parser():
                 if con.zone2 not in zones:
                     raise ValueError(f"Line {line_index}: Unknown zone '{con.zone2}'.")
                 for existing in connections:
-                    if (existing.zone1 == con.zone1 and existing.zone2 == con.zone2 or
-                            existing.zone1 == con.zone2 and existing.zone2 == con.zone1):
-                        raise ValueError(f'Line {line_index}: Duplicate connection "{con.zone1}-{con.zone2}".')
+                    if (
+                        existing.zone1 == con.zone1
+                        and existing.zone2 == con.zone2
+                        or existing.zone1 == con.zone2
+                        and existing.zone2 == con.zone1
+                    ):
+                        raise ValueError(
+                            f'Line {line_index}: Duplicate connection "{con.zone1}-{con.zone2}".'
+                        )
                 connections.append(con)
             else:
                 raise ValueError(f"Line {line_index}: Unrecognized line format.")

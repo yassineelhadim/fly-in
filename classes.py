@@ -1,5 +1,5 @@
 from enum import Enum
-from typing import List, Dict, Tuple
+from typing import List
 
 
 class ZoneType(Enum):
@@ -11,18 +11,19 @@ class ZoneType(Enum):
     PRIORITY = "priority"
 
 
-class Zone():
+class Zone:
     """Represents a single zone (node) in the drone network."""
 
-    def __init__(self,
-                 name: str,
-                 x: int,
-                 y: int,
-                 zone_type: ZoneType,
-                 color: str | None,
-                 max_drones: int,
-                 zone_place: str
-                 ) -> None:
+    def __init__(
+        self,
+        name: str,
+        x: int,
+        y: int,
+        zone_type: ZoneType,
+        color: str | None,
+        max_drones: int,
+        zone_place: str,
+    ) -> None:
         """Initialize a Zone.
 
         Args:
@@ -42,7 +43,7 @@ class Zone():
         self.zone_place: str = zone_place
 
 
-class Connection():
+class Connection:
     """Represents a bidirectional connection (edge) between two zones."""
 
     def __init__(self, zone1: str, zone2: str, max_link_capacity: int) -> None:
@@ -58,16 +59,17 @@ class Connection():
         self.max_link_capacity: int = max_link_capacity
 
 
-class MapData():
+class MapData:
     """Holds all data extracted from a parsed map file."""
 
-    def __init__(self,
-                 nb_drones: int,
-                 start_zone: str,
-                 end_zone: str,
-                 zones: dict[str, Zone],
-                 connections: list[Connection]
-                 ) -> None:
+    def __init__(
+        self,
+        nb_drones: int,
+        start_zone: str,
+        end_zone: str,
+        zones: dict[str, Zone],
+        connections: list[Connection],
+    ) -> None:
         """Initialize MapData.
 
         Args:
@@ -83,12 +85,14 @@ class MapData():
         self.zones: dict[str, Zone] = zones
         self.connections: list[Connection] = connections
 
-class Drone():
+
+class Drone:
     def __init__(self, path: List[str], id_: int) -> None:
         self.path: List[str] = path
         self.id_: int = id_
         self.current_position: str = self.path[0]
         self.step: int = 0
+        self.wait_turns: int = 0
 
     def move_drone(self) -> None:
         self.step += 1

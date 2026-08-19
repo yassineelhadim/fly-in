@@ -1,9 +1,11 @@
-from typing import List, Dict
-from parser import MapData, Zone
+from typing import Dict, List
+
+from parser import MapData
 
 
 class Graph:
     """Build the graph"""
+
     def __init__(self, map_data: MapData) -> None:
         self.map_data = map_data
         self.adj: Dict[str, List[str]] = {}
@@ -21,8 +23,9 @@ class Graph:
 
 
 class GraphEditor:
-    """Edits the graph and temporarily deletes one 
+    """Edits the graph and temporarily deletes one
     connection so I can find multiple paths"""
+
     def __init__(self, original_graph: Graph) -> None:
         self.original_graph = original_graph
 
@@ -45,4 +48,3 @@ class GraphEditor:
     def move_drone(self) -> None:
         self.step += 1
         self.current_position = self.path[self.step]
-

@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional, Tuple, Set
+from typing import Dict, List, Tuple, Set
 from classes import MapData, ZoneType
 from graph import Graph, GraphEditor
 import math
@@ -88,7 +88,6 @@ class PathFinder:
         tracking_list.reverse()
         return tracking_list
 
-
     def dijkstra(self) -> list[str]:
         self.visited_zones.clear()
         self.distance, self.previous = self.init_dis_a_pre()
@@ -96,8 +95,11 @@ class PathFinder:
         nb_zones = len(self.map_data.zones)
         while len(self.visited_zones) < nb_zones:
             self.visited_zones.add(current_zone)
-            neighbors = [x for x in self.graph.get_neighbors(current_zone) 
-                         if not self.is_visited(x)]
+            neighbors = [
+                x
+                for x in self.graph.get_neighbors(current_zone)
+                if not self.is_visited(x)
+            ]
             self.update_neighbors(current_zone, neighbors)
             closest_zone = self.get_cl_zone()
             if closest_zone is None or self.distance[closest_zone] == math.inf:

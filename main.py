@@ -1,7 +1,9 @@
 import sys
+
 from parser import start
 from pathfinder import PathFinder
 from scheduler import Scheduler
+
 
 def main():
     if len(sys.argv) != 2:
@@ -14,13 +16,12 @@ def main():
         paths = path_finder.find_multiple_paths()
         if not paths:
             raise ValueError("No valid path found from start_hub to end_hub.")
-        scheduler = Scheduler(map_data, paths)
+        # Always enable visualization by default
+        scheduler = Scheduler(map_data, paths, visualize=True)
         scheduler.run()
     except Exception as e:
-        print(f'Error: {e}')
+        print(f"Error: {e}")
         sys.exit(1)
-    
-
 
 
 if __name__ == "__main__":

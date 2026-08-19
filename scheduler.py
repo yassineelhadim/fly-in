@@ -1,13 +1,13 @@
 import classes
-import graph
 from typing import Tuple, List, Dict
-from classes import MapData, Drone
+from classes import MapData, Drone, ZoneType
+from visualizer import show
 
 
 class Scheduler:
-    def __init__(self,
-                 map_data: MapData,
-                 paths: List[List[str]]) -> None:
+    def __init__(
+        self, map_data: MapData, paths: List[List[str]], visualize: bool = False
+    ) -> None:
 
         self.map_data = map_data
         self.paths = paths
@@ -17,6 +17,7 @@ class Scheduler:
         # (zone1, zone2) -> drones that used this connection this turn
         self.used_connections: Dict[Tuple[str, str], int] = {}
         self.turn: int = 0
+        self.visualize_enabled = visualize
         self.create_drones()
         self.initialize_simulation()
 
@@ -43,7 +44,6 @@ class Scheduler:
         self.used_connections: dict[tuple[str, str], int] = {}
         # Moves performed during the current turn
         self.turn_moves: list[str] = []
-        
 
     def choose_path(self, drone: Drone) -> None:
         """Assign the shortest available path to a drone."""
@@ -66,6 +66,7 @@ class Scheduler:
 
         current_zone = drone.current_position
         next_zone = drone.path[drone.step + 1]
+        next_zone_obj = self.map_data.zones[next_zone]
 
         # Update zone occupancy
         self.zone_occupancy[current_zone] -= 1
@@ -82,6 +83,10 @@ class Scheduler:
         # Move the drone
         drone.move_drone()
 
+        # Restricted zones take an extra turn before the drone can leave them.
+        if next_zone_obj.zone_type == ZoneType.RESTRICTED:
+            drone.wait_turns = 1
+
         # Save move for printing later
         self.turn_moves.append(f"D{drone.id_}-{next_zone}")
 
@@ -94,6 +99,9 @@ class Scheduler:
 
     def can_move(self, drone: Drone) -> bool:
         current_zone = drone.current_position
+
+        if drone.wait_turns > 0:
+            return False
 
         # 1. Drone already at destination
         if current_zone == self.map_data.end_zone:
@@ -113,15 +121,18 @@ class Scheduler:
 
         # 5. Destination zone full
         next_zone_occupancy = self.zone_occupancy.get(next_zone, 0)
-        if (next_zone != self.map_data.end_zone and
-                next_zone_occupancy >= next_zone_obj.max_drones):
+        if (
+            next_zone != self.map_data.end_zone
+            and next_zone_occupancy >= next_zone_obj.max_drones
+        ):
             return False
 
         # 6. Find the connection between current and next zones
         matching_connection = None
         for connection in self.map_data.connections:
-            if ((connection.zone1 == current_zone and connection.zone2 == next_zone) or
-                    (connection.zone1 == next_zone and connection.zone2 == current_zone)):
+            if (connection.zone1 == current_zone and connection.zone2 == next_zone) or (
+                connection.zone1 == next_zone and connection.zone2 == current_zone
+            ):
                 matching_connection = connection
                 break
 
@@ -143,14 +154,19 @@ class Scheduler:
 
         # 2. Process each drone.
         for drone in self.drones:
+            if drone.wait_turns > 0:
+                drone.wait_turns -= 1
+                continue
+
             if len(drone.path) <= 1:
                 self.choose_path(drone)
 
             if self.can_move(drone):
                 self.move_drone(drone)
 
-        # 3. Print all moves made this turn.
-        print(f"Turn {self.turn + 1}: {' '.join(self.turn_moves)}")
+        # 3. Print only turns where at least one drone moved.
+        if self.turn_moves:
+            print(f"Turn {self.turn + 1}: {' '.join(self.turn_moves)}")
 
         # 4. Increase the turn counter.
         self.turn += 1
@@ -159,4 +175,6 @@ class Scheduler:
         while not self.simulation_finished():
             self.used_connections = {}
             self.process_turn()
+            if self.visualize_enabled:
+                show(self.map_data, self.drones, self.turn)
         print(f"Total turns: {self.turn}")
