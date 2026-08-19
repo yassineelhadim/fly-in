@@ -1,27 +1,50 @@
 import time
 
-COLORS = {
-    "red": "\033[31m",
-    "green": "\033[32m",
-    "yellow": "\033[33m",
-    "blue": "\033[34m",
-    "magenta": "\033[35m",
-    "cyan": "\033[36m",
-    "white": "\033[37m",
-}
-RESET = "\033[0m"
+from classes import Drone, MapData
 
 
-def show(map_data, drones, turn):
-    counts = {}
-    for d in drones:
-        counts[d.current_position] = counts.get(d.current_position, 0) + 1
+class Visualizer:
+    COLORS = {
+        "red": "\033[31m",
+        "green": "\033[32m",
+        "yellow": "\033[33m",
+        "blue": "\033[34m",
+        "magenta": "\033[35m",
+        "cyan": "\033[36m",
+        "white": "\033[37m",
+    }
 
-    print("\033[2J\033[H", end="")
-    print(f"Turn {turn}\n")
-    for name, zone in map_data.zones.items():
-        c = COLORS.get(zone.color, COLORS["white"])
-        n = counts.get(name, 0)
-        drones_str = "🛸 " * n
-        print(f"  {c}{name:15s}{RESET} {drones_str}({n})")
-    time.sleep(0.4)
+    RESET = "\033[0m"
+
+    def __init__(self, delay: float = 0.4) -> None:
+        self.delay = delay
+
+    def show(
+        self,
+        map_data: MapData,
+        drones: list[Drone],
+        turn: int,
+    ) -> None:
+        counts: dict[str, int] = {}
+
+        for drone in drones:
+            position = drone.current_position
+            counts[position] = counts.get(position, 0) + 1
+
+        print("\033[2J\033[H", end="")
+        print(f"Turn {turn}\n")
+
+        for name, zone in map_data.zones.items():
+            color = self.COLORS.get(
+                zone.color or "white",
+                self.COLORS["white"],
+            )
+            count = counts.get(name, 0)
+            drones_str = "🛸 " * count
+
+            print(
+                f"  {color}{name:15s}{self.RESET} "
+                f"{drones_str}({count})"
+            )
+
+        time.sleep(self.delay)
